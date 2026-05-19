@@ -9,7 +9,7 @@ on:
 env:
   REGISTRY: registry.digitalocean.com/clientify
   IMAGE: registry.digitalocean.com/clientify/emailengine-prod
-  MANIFESTS_REPO: contacteitor/clientify-manifiestos-kubernetes
+  MANIFESTS_REPO: ClientifySL/clientify-manifiestos-kubernetes
   K8S_CLUSTER: clientify-plus-k8s
   NAMESPACE: emailengine
 
@@ -75,7 +75,7 @@ jobs:
     needs: build
     environment:
       name: production
-      url: https://ee-k8s.clientify.net
+      url: https://ee.clientify.com
 
     steps:
       - name: Approved
@@ -138,22 +138,8 @@ jobs:
             echo "Manifests actualizados en repo GitOps"
           fi
 
-      - name: Configure kubectl
-        run: doctl kubernetes cluster kubeconfig save ${{ env.K8S_CLUSTER }}
-        timeout-minutes: 3
-
-      - name: Apply manifests
-        timeout-minutes: 5
-        run: |
-          kubectl apply -f manifests/emailengine/prod/deployment.yaml
-
-      - name: Wait for rollout
-        id: rollout
-        timeout-minutes: 10
-        run: |
-          kubectl rollout status deployment/emailengine \
-            -n ${{ env.NAMESPACE }} \
-            --timeout=540s
+      # ArgoCD (emailengine-prod app) detecta el cambio en el repo y aplica automáticamente (~60s)
+      # No se hace kubectl apply directo ni rollback — ArgoCD es la fuente de verdad
 
       - name: Health check post-deploy
         timeout-minutes: 5
@@ -161,7 +147,7 @@ jobs:
           echo "Verificando salud del servicio..."
           for i in $(seq 1 6); do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-              https://ee-k8s.clientify.net/health || echo "000")
+              https://ee.clientify.com/health || echo "000")
             if [ "${STATUS}" = "200" ]; then
               echo "Health check OK (intento ${i}/6) - HTTP ${STATUS}"
               exit 0
@@ -171,15 +157,6 @@ jobs:
           done
           echo "Health check falló después de 3 minutos"
           exit 1
-
-      - name: Auto-rollback on failure
-        if: failure() && steps.rollout.conclusion == 'failure'
-        run: |
-          echo "Iniciando rollback automático..."
-          kubectl rollout undo deployment/emailengine -n ${{ env.NAMESPACE }}
-          kubectl rollout status deployment/emailengine \
-            -n ${{ env.NAMESPACE }} --timeout=300s || true
-          echo "Rollback completado"
 
       - name: Deployment Summary
         if: always()
@@ -197,8 +174,7 @@ jobs:
           echo "Branch:     ${{ github.ref_name }}"
           echo "Commit:     ${{ github.sha }}"
           echo "Image tag:  ${TAG}"
-          echo "URL:        https://ee-k8s.clientify.net"
+          echo "URL:        https://ee.clientify.com"
           echo ""
-          echo "Pods actuales:"
-          kubectl get pods -n ${{ env.NAMESPACE }} --no-headers 2>/dev/null || true
+          echo "ArgoCD sync: https://argocd.clientify.com/applications/emailengine-prod"
           echo "=========================================="
