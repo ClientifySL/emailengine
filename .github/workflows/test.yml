@@ -17,7 +17,7 @@ jobs:
             - uses: actions/checkout@v6
 
             - name: Use Node.js 24
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v6
               with:
                   node-version: 24
             - run: npm install
@@ -51,7 +51,7 @@ jobs:
         steps:
             - uses: actions/checkout@v6
             - name: Use Node.js ${{ matrix.node }}
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v6
               with:
                   node-version: ${{ matrix.node }}
             - name: Setup Redis CLI
@@ -84,3 +84,7 @@ jobs:
                   OUTLOOK_SERVICE_TENANT_ID: ${{ secrets.OUTLOOK_SERVICE_TENANT_ID }}
                   OUTLOOK_SERVICE_CLIENT_SECRET: ${{ secrets.OUTLOOK_SERVICE_CLIENT_SECRET }}
                   OUTLOOK_SERVICE_ACCOUNT_EMAIL: ${{ secrets.OUTLOOK_SERVICE_ACCOUNT_EMAIL }}
+                  GMAIL_SERVICE_POSTALSYS_CLIENT: ${{ secrets.GMAIL_SERVICE_POSTALSYS_CLIENT }}
+                  GMAIL_SERVICE_POSTALSYS_SERVICE_EMAIL: ${{ secrets.GMAIL_SERVICE_POSTALSYS_SERVICE_EMAIL }}
+                  GMAIL_SERVICE_POSTALSYS_KEY: ${{ secrets.GMAIL_SERVICE_POSTALSYS_KEY }}
+                  GMAIL_SERVICE_POSTALSYS_ACCOUNT_EMAIL: ${{ secrets.GMAIL_SERVICE_POSTALSYS_ACCOUNT_EMAIL }}

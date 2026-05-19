@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.67.3](https://github.com/postalsys/emailengine/compare/v2.67.2...v2.67.3) (2026-04-21)
+
+
+### Bug Fixes
+
+* use template literals for translated strings in showErrorPopup ([b56fd1f](https://github.com/postalsys/emailengine/commit/b56fd1fa7612b4cf2b7e99cbd78d7447b89c03c6))
+
+## [2.67.2](https://github.com/postalsys/emailengine/compare/v2.67.1...v2.67.2) (2026-04-21)
+
+
+### Bug Fixes
+
+* restore IMAP XOAUTH2 path for gmailService accounts ([d2ebe9b](https://github.com/postalsys/emailengine/commit/d2ebe9b3c19cd0bcaaf0fa17d40148f79dd7cd2b))
+
+## [2.67.1](https://github.com/postalsys/emailengine/compare/v2.67.0...v2.67.1) (2026-04-17)
+
+
+### Bug Fixes
+
+* detect IMAP drift that landed during an in-progress sync ([8fece8a](https://github.com/postalsys/emailengine/commit/8fece8ad6f3acb5e7391da7a9740279099f62177))
+* improve translation quality across 6 languages ([d7d338e](https://github.com/postalsys/emailengine/commit/d7d338e761152909d4c2ca4732fafb60529413ab))
+* pin undici to 7.25.0 for Node 20 compatibility ([3fa80db](https://github.com/postalsys/emailengine/commit/3fa80db4d64d6fe089fa3a1a0e700a188aeb74f7))
+
 ## [2.67.0](https://github.com/postalsys/emailengine/compare/v2.66.0...v2.67.0) (2026-03-31)
 
 
