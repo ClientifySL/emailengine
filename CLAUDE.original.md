@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-EmailEngine = email sync platform. REST API access to email accounts. Supports IMAP/SMTP, Gmail API, Microsoft Graph (Outlook). Real-time webhooks for email events.
+EmailEngine is an email sync platform that provides REST API access to email accounts. It supports IMAP/SMTP, Gmail API, and Microsoft Graph (Outlook) with real-time webhooks for email events.
 
 ## Project Structure
 
@@ -12,25 +12,25 @@ EmailEngine = email sync platform. REST API access to email accounts. Supports I
 - `/lib/email-client` - Email client implementations (IMAP, Gmail API, Outlook Graph)
 - `/lib/api-routes` - REST API route handlers
 - `/lib/ui-routes` - Web UI route handlers
-- `/lib/lua` - Redis Lua scripts for atomic ops
+- `/lib/lua` - Redis Lua scripts for atomic operations
 - `/lib/oauth` - OAuth provider implementations
-- `/lib/imapproxy` - IMAP proxy server impl
+- `/lib/imapproxy` - IMAP proxy server implementation
 - `/workers` - Worker thread modules (8 worker types, see Workers section)
-- `/test` - Unit + integration tests
-- `/config` - TOML config files
+- `/test` - Unit and integration tests
+- `/config` - TOML configuration files
 - `/views` - Handlebars templates for web UI
 - `/static` - Frontend assets (CSS, JS)
-- `/translations` - i18n files (7 languages)
+- `/translations` - i18n translation files (7 languages)
 
 ### Key Files
 
-- `lib/account.js` - Account class. Manages IMAP/SMTP interactions
+- `lib/account.js` - Account class, manages IMAP/SMTP interactions
 - `lib/account/account-state.js` - Account state machine
 - `lib/email-client/base-client.js` - Base email client class
 - `lib/email-client/gmail-client.js` - Gmail API integration
 - `lib/email-client/outlook-client.js` - Microsoft Graph integration
-- `lib/oauth2-apps.js` - OAuth2 app configs
-- `lib/export.js` - Export class for bulk email export ops
+- `lib/oauth2-apps.js` - OAuth2 application configurations
+- `lib/export.js` - Export class for bulk email export operations
 - `lib/api-routes/export-routes.js` - Export REST API endpoints
 - `workers/api.js` - REST API worker with Hapi server
 - `lib/routes-ui.js` - Web UI routes for admin interface
@@ -58,27 +58,27 @@ npm run single    # Single-worker debug mode with Inspector
 
 ## Testing
 
-- Node.js native test runner + native assert module
-- Tests run via Grunt: `npm test` runs `grunt` which runs Node.js test runner
-- Tests in `/test` dir
-- Redis DB 9 for test isolation
-- `npm test` for full suite + lint
+- Uses Node.js native test runner with native assert module
+- Tests run via Grunt: `npm test` executes `grunt` which runs Node.js test runner
+- Tests located in `/test` directory
+- Uses Redis database 9 for test isolation
+- Run `npm test` for full test suite with linting
 
 ## Main Process (server.js)
 
-Main process orchestrates all worker threads. Manages system lifecycle.
+The main process orchestrates all worker threads and manages system lifecycle:
 
 **Responsibilities:**
-- Spawn + monitor worker threads (health checks every 5s via heartbeats)
-- Assign email accounts to IMAP workers via load-balanced round-robin
-- Route inter-thread RPC calls with configurable timeout (`EENGINE_TIMEOUT`, default: 10s)
-- Manage Redis connection + monitor latency
-- Handle license validation (every 20 min, 28-day grace period)
-- Collect Prometheus metrics from all workers
+- Spawns and monitors worker threads (health checks every 5s via heartbeats)
+- Assigns email accounts to IMAP workers using load-balanced round-robin
+- Routes inter-thread RPC calls with configurable timeout (`EENGINE_TIMEOUT`, default: 10s)
+- Manages Redis connection and monitors latency
+- Handles license validation (checks every 20 minutes, 28-day grace period)
+- Collects Prometheus metrics from all workers
 
 **Startup sequence:**
-1. Load license from file/env/Redis
-2. Init settings (secrets, passwords, service ID)
+1. Load license from file/environment/Redis
+2. Initialize settings (secrets, passwords, service ID)
 3. Start API worker (wait for ready)
 4. Start all IMAP workers (wait for ready)
 5. Assign accounts to IMAP workers
@@ -88,17 +88,17 @@ Main process orchestrates all worker threads. Manages system lifecycle.
 **Account assignment:**
 - Initial: Round-robin with load awareness (accounts per worker = ceil(total/workers))
 - Reassignment after crashes: Rendezvous hashing for consistent routing
-- Failsafe: 10s timeout ensures orphaned accounts get reassigned
+- Failsafe: 10-second timeout ensures orphaned accounts get reassigned
 
 **Key functions:**
 - `spawnWorker(type)` - Create worker thread
 - `assignAccounts()` - Distribute accounts to IMAP workers
 - `call(worker, message)` - RPC with timeout
-- `checkWorkerHealth()` - Monitor heartbeats, auto-restart dead workers
+- `checkWorkerHealth()` - Monitor heartbeats, auto-restart unresponsive workers
 
 ## Workers
 
-EmailEngine uses Node.js Worker Threads for isolated execution. Workers talk to main thread (`server.js`) via message passing.
+EmailEngine uses Node.js Worker Threads for isolated execution. Workers communicate via message passing with the main thread (`server.js`).
 
 | Worker | File | Count | Purpose |
 |--------|------|-------|---------|
@@ -111,66 +111,66 @@ EmailEngine uses Node.js Worker Threads for isolated execution. Workers talk to 
 | SMTP | `smtp.js` | 1 | Optional SMTP server (see SMTP Server section below) |
 | IMAP Proxy | `imap-proxy.js` | 1 | Optional IMAP proxy server (see IMAP Proxy section below) |
 
-*Configurable via env vars (`EENGINE_WORKERS`, `EENGINE_WORKERS_WEBHOOKS`, `EENGINE_WORKERS_SUBMIT`, `EENGINE_EXPORT_QC`)
+*Configurable via environment variables (`EENGINE_WORKERS`, `EENGINE_WORKERS_WEBHOOKS`, `EENGINE_WORKERS_SUBMIT`, `EENGINE_EXPORT_QC`)
 
 **Worker Lifecycle:**
-- Main thread spawns workers at startup. Monitors health via heartbeats (every 10s)
-- IMAP workers get account assignments from main thread
-- Workers auto-restart on crash. Accounts reassigned to available workers
-- BullMQ queues distribute jobs to webhooks, submit, documents workers
+- Main thread spawns workers at startup and monitors health via heartbeats (every 10s)
+- IMAP workers receive account assignments from main thread
+- Workers auto-restart on crash; accounts are reassigned to available workers
+- BullMQ queues distribute jobs to webhooks, submit, and documents workers
 
 ### API Worker
 
-API worker (`workers/api.js`) runs Hapi.js HTTP server. Serves REST API (`/v1/*`) + admin web UI (`/admin/*`).
+The API worker (`workers/api.js`) runs a Hapi.js HTTP server serving both the REST API (`/v1/*`) and admin web UI (`/admin/*`).
 
 **Server features:**
-- REST API with OpenAPI/Swagger docs (`/admin/swagger`)
+- REST API with OpenAPI/Swagger documentation (`/admin/swagger`)
 - Admin dashboard with Handlebars templates
 - Server-Sent Events (SSE) for real-time account updates (`/admin/changes`)
-- Static file serving, CSRF protection, i18n (7 languages)
+- Static file serving, CSRF protection, i18n support (7 languages)
 
 **Authentication:**
 - **API tokens**: Bearer token via `Authorization` header or `?access_token=` query param
 - **Sessions**: Cookie-based (`ee` cookie) for admin UI
 - **OAuth2**: Optional OKTA integration (`OKTA_OAUTH2_*` env vars)
-- **TOTP**: Optional 2FA for admin login
+- **TOTP**: Optional two-factor authentication for admin login
 
 **Token scopes:** `api`, `metrics`, `smtp`, `imap-proxy`, `*` (all)
 
 **API route categories:**
-- `/v1/account/{account}/*` - Account + message ops
-- `/v1/token*` - API token mgmt
-- `/v1/settings` - Global config
-- `/v1/oauth2*` - OAuth2 app mgmt
+- `/v1/account/{account}/*` - Account and message operations
+- `/v1/token*` - API token management
+- `/v1/settings` - Global configuration
+- `/v1/oauth2*` - OAuth2 app management
 - `/v1/webhooks*`, `/v1/templates*`, `/v1/gateways*` - Resources
 
 **Configuration:**
 - `EENGINE_PORT` / `PORT` - Listen port (default: 3000)
 - `EENGINE_HOST` - Bind address (default: 127.0.0.1)
 - `EENGINE_MAX_BODY_SIZE` - Max POST body (default: 25MB)
-- `EENGINE_TIMEOUT` - Request timeout (default: 10s). Override with `X-EE-Timeout` header
+- `EENGINE_TIMEOUT` - Request timeout (default: 10s), override with `X-EE-Timeout` header
 - `EENGINE_API_PROXY` - Enable X-Forwarded-For parsing
 
 **Key files:**
-- `workers/api.js` - Hapi server setup + middleware
+- `workers/api.js` - Hapi server setup and middleware
 - `lib/routes-ui.js` - Admin UI routes (88 routes)
 - `lib/api-routes/*.js` - REST API route modules
-- `lib/tokens.js` - Token validation + CRUD
+- `lib/tokens.js` - Token validation and CRUD
 
 ### IMAP Worker
 
-IMAP worker (`workers/imap.js`) manages all email account connections + sync. Each worker handles many accounts via `ConnectionHandler` class.
+The IMAP worker (`workers/imap.js`) manages all email account connections and synchronization. Each worker handles multiple accounts via the `ConnectionHandler` class.
 
 **Connection types:**
-- **IMAP**: Native IMAP via ImapFlow lib with IDLE for real-time sync
-- **Gmail API**: OAuth2-based. Uses Pub/Sub for notifications (10-min polling fallback)
+- **IMAP**: Native IMAP via ImapFlow library with IDLE for real-time sync
+- **Gmail API**: OAuth2-based, uses Pub/Sub for notifications (10-min polling fallback)
 - **Outlook API**: Microsoft Graph with subscription webhooks (3-day auto-renewal)
 
 **Synchronization:**
 - IMAP: Persistent IDLE connection for real-time change detection
-- Full mailbox sync on connect, then 15-min periodic resync
+- Full mailbox sync on connect, then 15-minute periodic resync
 - UID tracking with UIDValidity validation (full resync if changed)
-- Exponential backoff reconnect (2s initial, 30s max)
+- Exponential backoff reconnection (2s initial, 30s max)
 
 **Operations supported:**
 - Message: `listMessages`, `getMessage`, `getText`, `getRawMessage`, `getAttachment`
@@ -179,16 +179,16 @@ IMAP worker (`workers/imap.js`) manages all email account connections + sync. Ea
 - Account: `pause`, `resume`, `delete`, `getQuota` (IMAP only)
 
 **Error handling:**
-- Auth failures tracked. Auto-disable after threshold (4-hour window)
-- Transient errors (timeout, DNS) → reconnect with backoff
+- Auth failures tracked; auto-disable after threshold (4-hour window)
+- Transient errors (timeout, DNS) trigger reconnection with backoff
 - Permanent errors (5xx) fail immediately
-- Excessive reconnect detection (>20/min triggers warning)
+- Excessive reconnection detection (>20/min triggers warning)
 
 **Key files:**
 - `workers/imap.js` - Worker thread with ConnectionHandler class
-- `lib/email-client/imap-client.js` - IMAP impl
-- `lib/email-client/gmail-client.js` - Gmail API impl
-- `lib/email-client/outlook-client.js` - Outlook/Graph impl
+- `lib/email-client/imap-client.js` - IMAP implementation
+- `lib/email-client/gmail-client.js` - Gmail API implementation
+- `lib/email-client/outlook-client.js` - Outlook/Graph implementation
 - `lib/email-client/base-client.js` - Shared client logic
 
 **Limitations:**
@@ -198,7 +198,7 @@ IMAP worker (`workers/imap.js`) manages all email account connections + sync. Ea
 
 ### Webhooks
 
-Webhooks system (`workers/webhooks.js`, `lib/webhooks.js`) delivers real-time HTTP POST notifications when email events fire. Uses BullMQ queue for reliable delivery with retries.
+The webhooks system (`workers/webhooks.js`, `lib/webhooks.js`) delivers real-time HTTP POST notifications when email events occur. Uses BullMQ queue for reliable delivery with retries.
 
 **Supported events:**
 - Message events: `messageNew`, `messageDeleted`, `messageUpdated`, `messageSent`, `messageDeliveryError`, `messageFailed`, `messageBounce`, `messageComplaint`
@@ -210,49 +210,49 @@ Webhooks system (`workers/webhooks.js`, `lib/webhooks.js`) delivers real-time HT
 **Configuration levels:**
 1. Global: `webhooksEnabled`, `webhooks` (URL), `webhookEvents` (whitelist)
 2. Per-account: `webhooks` URL overrides global
-3. Custom routes: Multiple URLs with JS filter/transform functions
+3. Custom routes: Multiple URLs with JavaScript filter/transform functions
 
 **Delivery details:**
-- Retries: 10 attempts with exponential backoff (start 5s)
-- Auth: Basic auth via URL credentials, custom headers, or HMAC-SHA256 signature
+- Retries: 10 attempts with exponential backoff (starting at 5s)
+- Authentication: Basic auth via URL credentials, custom headers, or HMAC-SHA256 signature
 - Signature header: `X-EE-Wh-Signature` (HMAC-SHA256 of body using service secret)
 - Concurrency: Configurable via `EENGINE_NOTIFY_QC` (default: 1)
 
 **Custom routes** (`lib/webhooks.js`):
-- `fn` - JS filter function returning boolean (include/exclude event)
-- `map` - JS transform function to modify payload pre-delivery
-- Functions run in sandboxed SubScript env (30s timeout, 1MB max)
+- `fn` - JavaScript filter function returning boolean (include/exclude event)
+- `map` - JavaScript transform function to modify payload before delivery
+- Functions run in sandboxed SubScript environment (30s timeout, 1MB max)
 
 **Key files:**
 - `workers/webhooks.js` - BullMQ worker processing webhook queue
-- `lib/webhooks.js` - WebhooksHandler class for CRUD + payload formatting
+- `lib/webhooks.js` - WebhooksHandler class for CRUD and payload formatting
 - `lib/email-client/notification-handler.js` - Event emission to webhook queue
 
 ### Submit Worker
 
-Submit worker (`workers/submit.js`) processes queued outbound emails via BullMQ. Delivers via SMTP or provider APIs (Gmail, Outlook). All email sending in EmailEngine = async.
+The submit worker (`workers/submit.js`) processes queued outbound emails via BullMQ and delivers them through SMTP or provider APIs (Gmail, Outlook). All email sending in EmailEngine is asynchronous.
 
 **How it works:**
 1. API/SMTP server queues message to Redis (content) + BullMQ (job metadata)
 2. Submit worker picks up job from queue
-3. Loads account, calls `submitMessage()` in base-client.js
-4. Sends via SMTP or OAuth2 API based on account config
+3. Loads account and calls `submitMessage()` in base-client.js
+4. Sends via SMTP or OAuth2 API depending on account configuration
 5. Fires webhook events for success/failure
 
 **Retry logic:**
 - Default: 10 attempts (`deliveryAttempts` setting)
-- Backoff: Exponential start 5s (`5s, 10s, 20s, 40s...`)
+- Backoff: Exponential starting at 5s (`5s, 10s, 20s, 40s...`)
 - Retries on transient errors (< 500 status code)
 - No retry on permanent 5xx errors (message rejected)
 
 **Webhook events:**
 - `messageSent` - Message accepted by SMTP server
-- `messageDeliveryError` - Retryable error (includes `nextAttempt`)
+- `messageDeliveryError` - Retryable error occurred (includes `nextAttempt`)
 - `messageFailed` - All retries exhausted, delivery failed
 
 **Configuration:**
 - `EENGINE_SUBMIT_QC` - Concurrency per worker (default: 1)
-- `EENGINE_SUBMIT_DELAY` - Rate limit (e.g., `1s` = 1 msg/sec)
+- `EENGINE_SUBMIT_DELAY` - Rate limiting (e.g., `1s` = 1 msg/sec)
 - `deliveryAttempts` setting - Default retry count (default: 10)
 
 **Post-delivery actions:**
@@ -262,16 +262,16 @@ Submit worker (`workers/submit.js`) processes queued outbound emails via BullMQ.
 - Updates gateway delivery stats (if using gateway)
 
 **Key files:**
-- `workers/submit.js` - BullMQ worker impl
-- `lib/email-client/base-client.js` - `queueMessage()` + `submitMessage()` logic
+- `workers/submit.js` - BullMQ worker implementation
+- `lib/email-client/base-client.js` - `queueMessage()` and `submitMessage()` logic
 - `lib/outbox.js` - Queue inspection API
 
 ### Export Worker
 
-Export worker (`workers/export.js`) processes bulk email export jobs via BullMQ. Extracts messages from accounts. Writes to compressed NDJSON files with optional encryption.
+The export worker (`workers/export.js`) processes bulk email export jobs via BullMQ. It extracts messages from accounts and writes them to compressed NDJSON files with optional encryption.
 
 **How it works:**
-1. API creates export job with date range + folder filters
+1. API creates export job with date range and folder filters
 2. Worker indexes matching messages from specified folders
 3. Fetches message content in batches (parallel for API accounts, sequential for IMAP)
 4. Writes to gzip-compressed NDJSON file (optionally encrypted)
@@ -280,11 +280,11 @@ Export worker (`workers/export.js`) processes bulk email export jobs via BullMQ.
 **Export phases:**
 - `pending` - Job queued, waiting for worker
 - `indexing` - Scanning folders for matching messages
-- `exporting` - Fetching + writing message content
-- `complete` - Export finished
+- `exporting` - Fetching and writing message content
+- `complete` - Export finished successfully
 
 **Error handling and recovery:**
-- **Transient errors** (network timeouts, 5xx): Retry with exponential backoff
+- **Transient errors** (network timeouts, 5xx responses): Retry with exponential backoff
 - **Skippable errors** (message not found, 404): Skip message, increment counter
 - **Account validation**: Checks every 60s if account still exists
 **Retry configuration:**
@@ -293,13 +293,13 @@ Export worker (`workers/export.js`) processes bulk email export jobs via BullMQ.
 - Folder indexing: 3 retries with 1s base delay
 
 **Webhook events:**
-- `exportCompleted` - Export done with stats (messages exported, skipped, bytes)
-- `exportFailed` - Export failed with error details + phase info
+- `exportCompleted` - Export finished with stats (messages exported, skipped, bytes)
+- `exportFailed` - Export failed with error details and phase info
 
 **Configuration:**
 - `EENGINE_EXPORT_QC` - Concurrency per worker (default: 1)
-- `EENGINE_EXPORT_TIMEOUT` - Operation timeout (default: 5 min)
-- `EENGINE_EXPORT_PATH` - Export file dir (default: OS temp dir)
+- `EENGINE_EXPORT_TIMEOUT` - Operation timeout (default: 5 minutes)
+- `EENGINE_EXPORT_PATH` - Export file directory (default: OS temp dir)
 - `exportMaxAge` setting - Export file retention (default: 7 days)
 - `exportMaxConcurrent` setting - Per-account concurrent limit (default: 3)
 - `exportMaxGlobalConcurrent` setting - Global concurrent limit (default: 10)
@@ -313,80 +313,80 @@ Export worker (`workers/export.js`) processes bulk email export jobs via BullMQ.
 - `GET /v1/account/{account}/exports` - List exports with pagination
 
 **Key files:**
-- `workers/export.js` - BullMQ worker impl
-- `lib/export.js` - Export class with CRUD + queue ops
+- `workers/export.js` - BullMQ worker implementation
+- `lib/export.js` - Export class with CRUD and queue operations
 - `lib/api-routes/export-routes.js` - REST API endpoints
 
 ### SMTP Server
 
-SMTP server (`workers/smtp.js`) = built-in Message Submission Agent (MSA). Lets legacy apps send emails through EmailEngine via standard SMTP. Messages queued for async delivery via Submit worker.
+The SMTP server (`workers/smtp.js`) is a built-in Message Submission Agent (MSA) that allows legacy applications to send emails through EmailEngine using standard SMTP protocol. Messages are queued for asynchronous delivery via the Submit worker.
 
 **How it works:**
-1. Client connects, optionally authenticates via SMTP AUTH
-2. Client sends message with MAIL FROM, RCPT TO, DATA commands
-3. Server queues message for delivery through associated EmailEngine account
-4. Returns queue ID + scheduled send time
+1. Client connects and optionally authenticates via SMTP AUTH
+2. Client sends message with MAIL FROM, RCPT TO, and DATA commands
+3. Server queues message for delivery through the associated EmailEngine account
+4. Returns queue ID and scheduled send time
 
 **Authentication methods:**
 - With auth enabled (`smtpServerAuthEnabled`):
   - Username: Account ID
   - Password: Global password (`smtpServerPassword`) or 64-char hex token with `smtp` scope
-- No auth: Specify account via `X-EE-Account` header in message
+- Without auth: Specify account via `X-EE-Account` header in message
 
-**Configuration** (settings or env vars):
-- `smtpServerEnabled` / `EENGINE_SMTP_ENABLED` - Enable server
+**Configuration** (settings or environment variables):
+- `smtpServerEnabled` / `EENGINE_SMTP_ENABLED` - Enable the server
 - `smtpServerPort` / `EENGINE_SMTP_PORT` - Listen port (default: 2525)
 - `smtpServerHost` / `EENGINE_SMTP_HOST` - Bind address (default: 127.0.0.1)
-- `smtpServerAuthEnabled` - Require SMTP auth
+- `smtpServerAuthEnabled` - Require SMTP authentication
 - `smtpServerPassword` / `EENGINE_SMTP_SECRET` - Global password (encrypted)
-- `smtpServerTLSEnabled` - Enable TLS
+- `smtpServerTLSEnabled` - Enable TLS encryption
 - `smtpServerProxy` / `EENGINE_SMTP_PROXY` - Enable PROXY protocol (HAProxy)
 
-**Special headers** (stripped before sending):
+**Special headers** (removed before sending):
 - `X-EE-Account` - Specify sending account (when auth disabled)
 - `X-EE-Idempotency-Key` - Prevent duplicate submissions
 
 **Limitations:**
 - Max message size: 25MB (configurable via `EENGINE_MAX_SMTP_MESSAGE_SIZE`)
-- Async delivery only (queued, not sent immediately)
-- Account must have valid SMTP or OAuth2 creds
+- Asynchronous delivery only (messages queued, not sent immediately)
+- Account must have valid SMTP or OAuth2 credentials configured
 
 ### IMAP Proxy
 
-IMAP proxy (`lib/imapproxy/`) lets standard IMAP clients access EmailEngine-managed accounts. Abstracts OAuth2 complexity. Legacy clients can connect to Gmail, Microsoft 365, other OAuth2-only providers.
+The IMAP proxy (`lib/imapproxy/`) allows standard IMAP clients to access EmailEngine-managed accounts. It abstracts OAuth2 complexity, enabling legacy clients to connect to Gmail, Microsoft 365, and other OAuth2-only providers.
 
 **How it works:**
-1. Client connects, authenticates with account ID + password/token
-2. Proxy validates creds, opens connection to real mail server
-3. After auth, all IMAP commands pass through to backend
+1. Client connects and authenticates with account ID + password/token
+2. Proxy validates credentials and establishes connection to real mail server
+3. After auth, all IMAP commands pass through transparently to backend
 
 **Authentication methods:**
 - Global password: Configure `imapProxyServerPassword` setting
-- Access tokens: 64-char hex token with `imap-proxy` or `*` scope
+- Access tokens: 64-character hex token with `imap-proxy` or `*` scope
 
-**Configuration** (settings or env vars):
-- `imapProxyServerEnabled` / `EENGINE_IMAP_PROXY_ENABLED` - Enable proxy
+**Configuration** (settings or environment variables):
+- `imapProxyServerEnabled` / `EENGINE_IMAP_PROXY_ENABLED` - Enable the proxy
 - `imapProxyServerPort` / `EENGINE_IMAP_PROXY_PORT` - Listen port (default: 2993)
 - `imapProxyServerHost` / `EENGINE_IMAP_PROXY_HOST` - Bind address
-- `imapProxyServerTLSEnabled` - Enable TLS
+- `imapProxyServerTLSEnabled` - Enable TLS encryption
 - `imapProxyServerProxy` - Enable PROXY protocol (HAProxy)
 
 **Key files:**
-- `lib/imapproxy/imap-server.js` - Main proxy server + auth logic
-- `lib/imapproxy/imap-core/` - IMAP protocol impl (RFC 3501)
+- `lib/imapproxy/imap-server.js` - Main proxy server and authentication logic
+- `lib/imapproxy/imap-core/` - IMAP protocol implementation (RFC 3501)
 
 **Limitations:**
-- No support for API-only accounts (e.g., Mail.ru API mode)
-- Requires IMAP support on email provider
+- Does not work with API-only accounts (e.g., Mail.ru API mode)
+- Requires IMAP support on the email provider
 
 ## Authentication Design
 
-- **Passkey (WebAuthn) login = standalone auth method.** Bypasses TOTP intentionally. When user authenticates via passkey, no extra factor required. By design - passkeys treated as single sufficient factor.
+- **Passkey (WebAuthn) login is a standalone authentication method.** It intentionally bypasses TOTP. When a user authenticates via passkey, no additional factor is required. This is by design - passkeys are treated as a single sufficient factor.
 
 ## Architecture Notes
 
 - **Multi-threaded**: 8 worker types (API, IMAP, webhooks, submit, export, documents, SMTP server, IMAP proxy)
-- **Redis-backed**: Primary data store. Lua scripts for atomic ops
+- **Redis-backed**: Primary data store with Lua scripts for atomic operations
 - **Encrypted**: All credentials encrypted at rest (AES-256-GCM)
 - **State machine**: Account states (init, connecting, syncing, connected, authenticationError, connectError, unset)
 
@@ -397,14 +397,14 @@ IMAP proxy (`lib/imapproxy/`) lets standard IMAP clients access EmailEngine-mana
 - `EENGINE_PORT` / `PORT` - API server port (default: 3000)
 - `EENGINE_HOST` - API server bind address (default: 127.0.0.1)
 - `EENGINE_TIMEOUT` - Command timeout in ms (default: 10000)
-- `EENGINE_LOG_LEVEL` - Log level (default: trace)
+- `EENGINE_LOG_LEVEL` - Logging level (default: trace)
 
 **Workers:**
 - `EENGINE_WORKERS` - IMAP worker count (default: 4)
 - `EENGINE_WORKERS_WEBHOOKS` - Webhook worker count (default: 1)
 - `EENGINE_WORKERS_SUBMIT` - Submit worker count (default: 1)
 - `EENGINE_EXPORT_QC` - Export concurrency per worker (default: 1)
-- `EENGINE_EXPORT_TIMEOUT` - Export operation timeout (default: 5 min)
+- `EENGINE_EXPORT_TIMEOUT` - Export operation timeout (default: 5 minutes)
 - `EENGINE_NOTIFY_QC` - Webhook concurrency per worker (default: 1)
 
 **Prepared configuration** (applied on startup):
@@ -415,16 +415,16 @@ IMAP proxy (`lib/imapproxy/`) lets standard IMAP clients access EmailEngine-mana
 
 ## Code Style Rules
 
-- No emojis in code or docs. Printable ASCII only
-- Use single hyphen-minus (`-`) as dash in UI copy + user-facing strings. No double hyphens (`--`), em dashes, en dashes
-- Git commit messages: do not include Claude as co-contributor
-- After code changes:
-  1. Run `/simplify` to review changed code for reuse, quality, efficiency
+- Never use emojis in code or documentation, only printable ASCII characters
+- Use a single hyphen-minus (`-`) as a dash in UI copy and user-facing strings. Never use double hyphens (`--`), em dashes, or en dashes.
+- When composing git commit messages do not include Claude as co-contributor
+- After making code changes:
+  1. Run `/simplify` to review changed code for reuse, quality, and efficiency
   2. Run `npm run format` and `npm run lint`
-  3. Run `/security-review` to check for security issues before commit
-- Avoid circuit breaker pattern unless absolutely necessary. EmailEngine processes many independent accounts through shared workers. Single failing account can trip circuit breaker, block all others. Prefer per-account error handling (retry with backoff, error state tracking) over global circuit breakers.
-- Never suppress or swallow unhandled rejections/exceptions at global handler level. If error reaches global `unhandledRejection` or `uncaughtException` handler, worker must die -- last line of defense. Correct fix: handle error at source so it never bubbles to global handler. Means proper try/catch, .catch(), or error event handlers at actual call site. If unhandled rejection comes from dependency (e.g. ImapFlow), fix in dependency itself.
+  3. Run `/security-review` to check for security issues before committing
+- Avoid the circuit breaker pattern unless absolutely necessary. EmailEngine processes many independent accounts through shared workers, so a single failing account can trip a circuit breaker and block all other accounts. Prefer per-account error handling (retry with backoff, error state tracking) over global circuit breakers.
+- Never suppress or swallow unhandled rejections/exceptions at the global handler level. If an error reaches the global `unhandledRejection` or `uncaughtException` handler, the worker must die -- this is the last line of defense. The correct fix is always to handle the error at the source so it never bubbles up to the global handler. This means adding proper try/catch, .catch(), or error event handlers at the actual call site. If the unhandled rejection originates in a dependency (e.g. ImapFlow), fix it in the dependency itself.
 
 ## Dependencies We Maintain
 
-- **ImapFlow** (`../imapflow`): ImapFlow IMAP client library maintained by us. Local dev copy at `../imapflow` relative to project root. When bugs or unhandled promise rejections originate in ImapFlow, fix directly in ImapFlow source rather than work around in EmailEngine.
+- **ImapFlow** (`../imapflow`): The ImapFlow IMAP client library is maintained by us. The local development copy lives at `../imapflow` relative to this project root. When bugs or unhandled promise rejections originate in ImapFlow, fix them directly in the ImapFlow source rather than working around them in EmailEngine.
