@@ -25,18 +25,22 @@
     <div class="card-body">
         <div class="row no-gutters align-items-center">
             <div class="col mr-2">
-                <strong>Service accounts</strong> allow EmailEngine to access Gmail mailboxes using a Google Cloud
-                service key, with no interactive user login required. The service account must have domain-wide
-                delegation enabled in Google Workspace. Use this for automated integrations where you cannot
-                perform interactive logins.
-                Accounts using service access can only be added via the
-                <a href="/admin/swagger#/Account/postV1Account">REST API</a>,
-                not through the hosted authentication form.
-                {{#if providerData.tutorialUrl}}
-                Read about setting up {{providerData.comment}} from <a
-                    href="{{providerData.tutorialUrl}}" target="_blank" rel="noopener noreferrer"
-                    referrerpolicy="no-referrer">here</a>.
-                {{/if}}
+                <strong>Service accounts</strong> let EmailEngine access any mailbox in your Google Workspace
+                organization without an interactive user login. The service account must have domain-wide
+                delegation enabled in Workspace. Use this for automated integrations where you cannot perform
+                interactive logins.
+                <p class="mt-2 mb-0">
+                    Two authentication methods are supported: a downloaded <strong>service account key</strong>
+                    (classic) or <strong>Workload Identity Federation</strong> (keyless, for GKE, EKS, AKS, or
+                    any OIDC-emitting workload). Pick one below.
+                </p>
+                <p class="mt-2 mb-0">
+                    Accounts using service access can only be added via the
+                    <a href="/admin/swagger#/Account/postV1Account">REST API</a>, not through the hosted
+                    authentication form.{{#if providerData.tutorialUrl}} Read the
+                    <a href="{{providerData.tutorialUrl}}" target="_blank" rel="noopener noreferrer"
+                        referrerpolicy="no-referrer">setup guide</a> for both methods.{{/if}}
+                </p>
             </div>
             <div class="col-auto">
                 <i class="fas fa-info-circle fa-2x text-gray-300"></i>
@@ -184,14 +188,58 @@
         {{#if activeGmailService}}
 
         <div class="form-group">
-            <button type="button" class="btn btn-info btn-icon-split" id="serviceFile">
-                <span class="icon text-white-50">
-                    <i class="fas fa-cloud-upload-alt"></i>
-                </span>
-                <span class="text">Load configuration from the service key file&#x2026;</span>
-            </button>
-            <small class="form-text text-muted">Select the JSON file you received after generating a new service key to
-                retrieve the service values.</small>
+            <label class="d-block">Authentication method</label>
+            <input type="hidden" name="authMethod" id="authMethod"
+                value="{{#if authMethodIsExternalAccount}}externalAccount{{else}}serviceKey{{/if}}" />
+            {{#if authMethodLocked}}
+            <p class="mb-1">
+                <strong>{{#if authMethodIsExternalAccount}}Workload Identity Federation (keyless){{else}}Service account key{{/if}}</strong>
+            </p>
+            <small class="form-text text-muted">The authentication method is fixed once the application has been created and
+                cannot be changed.</small>
+            {{else}}
+            <ul class="nav nav-tabs" id="auth-method-tabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link auth-method-tab {{#if authMethodIsServiceKey}}active{{/if}}"
+                        id="auth-method-tab-serviceKey" data-auth-method="serviceKey" href="#" role="tab"
+                        aria-selected="{{#if authMethodIsServiceKey}}true{{else}}false{{/if}}">Service account key</a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link auth-method-tab {{#if authMethodIsExternalAccount}}active{{/if}}"
+                        id="auth-method-tab-externalAccount" data-auth-method="externalAccount" href="#" role="tab"
+                        aria-selected="{{#if authMethodIsExternalAccount}}true{{else}}false{{/if}}">Workload Identity Federation (keyless)</a>
+                </li>
+            </ul>
+            <small class="form-text text-muted">"Service account key" expects a downloaded JSON key file.
+                "Workload Identity Federation" authenticates without a long-lived key, using a credential issued
+                by your runtime environment.</small>
+            {{/if}}
+        </div>
+
+        <div class="auth-method-section auth-method-section-serviceKey {{#unless authMethodIsServiceKey}}d-none{{/unless}}">
+            <div class="form-group">
+                <button type="button" class="btn btn-info btn-icon-split" id="serviceFile">
+                    <span class="icon text-white-50">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </span>
+                    <span class="text">Load configuration from the service key file&#x2026;</span>
+                </button>
+                <small class="form-text text-muted">Select the JSON file you received after generating a new service key to
+                    retrieve the service values.</small>
+            </div>
+        </div>
+
+        <div class="auth-method-section auth-method-section-externalAccount {{#unless authMethodIsExternalAccount}}d-none{{/unless}}">
+            <div class="form-group">
+                <button type="button" class="btn btn-info btn-icon-split" id="externalAccountFile">
+                    <span class="icon text-white-50">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </span>
+                    <span class="text">Load configuration from the external-account JSON file&#x2026;</span>
+                </button>
+                <small class="form-text text-muted">Select the credential configuration file produced by
+                    <code>gcloud iam workload-identity-pools create-cred-config</code>.</small>
+            </div>
         </div>
 
         <div class="form-group">
@@ -235,18 +283,37 @@
             <small class="form-text text-muted">OAuth2 Service Client ID</small>
         </div>
 
-        <div class="form-group">
+        <div class="auth-method-section auth-method-section-serviceKey {{#unless authMethodIsServiceKey}}d-none{{/unless}}">
+            <div class="form-group">
 
-            <label for="serviceKey">Secret service key</label>
+                <label for="serviceKey">Secret service key</label>
 
-            <textarea class="form-control droptxt autoselect {{#if errors.serviceKey}}is-invalid{{/if}}" id="serviceKey"
-                name="serviceKey" rows="4" data-enable-grammarly="false" spellcheck="false" {{#if
-                hasServiceKey}}placeholder="Service key is set but not shown&mldr;" {{else}}
-                placeholder="Starts with &quot;-----BEGIN PRIVATE KEY-----&quot;&mldr;" {{/if}} {{#unless
-                hasServiceKey}}required{{/unless}}>{{values.serviceKey}}</textarea>
-            {{#if errors.serviceKey}}
-            <span class="invalid-feedback">{{errors.serviceKey}}</span>
-            {{/if}}
+                <textarea class="form-control droptxt autoselect {{#if errors.serviceKey}}is-invalid{{/if}}" id="serviceKey"
+                    name="serviceKey" rows="8" data-enable-grammarly="false" spellcheck="false" {{#if
+                    hasServiceKey}}placeholder="Service key is set but not shown&mldr;" {{else}}
+                    placeholder="Starts with &quot;-----BEGIN PRIVATE KEY-----&quot;&mldr;" {{/if}}>{{values.serviceKey}}</textarea>
+                {{#if errors.serviceKey}}
+                <span class="invalid-feedback">{{errors.serviceKey}}</span>
+                {{/if}}
+            </div>
+        </div>
+
+        <div class="auth-method-section auth-method-section-externalAccount {{#unless authMethodIsExternalAccount}}d-none{{/unless}}">
+            <div class="form-group">
+
+                <label for="externalAccount">External account configuration</label>
+
+                <textarea class="form-control droptxt autoselect text-monospace {{#if errors.externalAccount}}is-invalid{{/if}}"
+                    id="externalAccount" name="externalAccount" rows="8" data-enable-grammarly="false" spellcheck="false" {{#if
+                    hasExternalAccount}}placeholder="External account configuration is set but not shown&mldr;" {{else}}
+                    placeholder="{&quot;type&quot;:&quot;external_account&quot;,&quot;audience&quot;:&quot;...&quot;,&quot;credential_source&quot;:{&quot;file&quot;:&quot;/var/run/secrets/...&quot;}}" {{/if}}>{{values.externalAccount}}</textarea>
+                {{#if errors.externalAccount}}
+                <span class="invalid-feedback">{{errors.externalAccount}}</span>
+                {{/if}}
+                <small class="form-text text-muted">Paste the JSON produced by
+                    <code>gcloud iam workload-identity-pools create-cred-config</code>. Only the
+                    <code>file</code> and <code>url</code> credential sources are supported.</small>
+            </div>
         </div>
 
         {{else if activeOutlookService}}
@@ -811,7 +878,7 @@
 
     <div id="select-pubsub-app" class="card-footer {{#unless baseScopesApi}}d-none{{/unless}}">
 
-        <p>Microsoft Graph delivers change notifications to EmailEngine at these two endpoints:</p>
+        <p>Microsoft Graph delivers change notifications to EmailEngine at these two endpoints:</p>
 
         <pre><code>{{mainServiceUrl}}/oauth/msg/lifecycle
 {{mainServiceUrl}}/oauth/msg/notification</code></pre>
@@ -825,7 +892,7 @@
         <p>
             If your EmailEngine instance cannot be exposed directly, configure a public
             proxy domain in <span class="text-muted code-link"><a href="/admin/swagger#/Settings/postV1Settings"
-                    target="_blank" rel="noopener noreferrer">notificationBaseUrl</a></span>. Microsoft Graph will then
+                    target="_blank" rel="noopener noreferrer">notificationBaseUrl</a></span>. Microsoft Graph will then
             post to <code>https://&lt;proxy-domain&gt;/oauth/msg/...</code> instead of
             <code>{{mainServiceUrl}}</code>.
         </p>
