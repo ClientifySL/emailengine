@@ -422,6 +422,7 @@ IMAP proxy (`lib/imapproxy/`) lets standard IMAP clients access EmailEngine-mana
   1. Run `/simplify` to review changed code for reuse, quality, efficiency
   2. Run `npm run format` and `npm run lint`
   3. Run `/security-review` to check for security issues before commit
+- After pushing, check GitHub Actions runs for the push (e.g. `gh run list --branch <branch>`) + report status. If run fails for strange/unrelated reason (checkout "account suspended", HTTP 403, auth/infra errors unrelated to change), check https://www.githubstatus.com/ for active GitHub incident before assuming code caused it.
 - Avoid circuit breaker pattern unless absolutely necessary. EmailEngine processes many independent accounts through shared workers. Single failing account can trip circuit breaker, block all others. Prefer per-account error handling (retry with backoff, error state tracking) over global circuit breakers.
 - Never suppress or swallow unhandled rejections/exceptions at global handler level. If error reaches global `unhandledRejection` or `uncaughtException` handler, worker must die -- last line of defense. Correct fix: handle error at source so it never bubbles to global handler. Means proper try/catch, .catch(), or error event handlers at actual call site. If unhandled rejection comes from dependency (e.g. ImapFlow), fix in dependency itself.
 
