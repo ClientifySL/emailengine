@@ -33,7 +33,7 @@ EmailEngine = email sync platform. REST API access to email accounts. Supports I
 - `lib/export.js` - Export class for bulk email export ops
 - `lib/api-routes/export-routes.js` - Export REST API endpoints
 - `workers/api.js` - REST API worker with Hapi server
-- `lib/routes-ui.js` - Web UI routes for admin interface
+- `lib/routes-ui.js` - Admin UI route orchestrator (wires the `lib/ui-routes/*` modules)
 
 ## Technology Stack
 
@@ -102,7 +102,7 @@ EmailEngine uses Node.js Worker Threads for isolated execution. Workers talk to 
 
 | Worker | File | Count | Purpose |
 |--------|------|-------|---------|
-| API | `api.js` | 1 | HTTP server for REST API and admin UI (see API Worker section below) |
+| API | `api.js` | 1* | HTTP server for REST API and admin UI (see API Worker section below) |
 | IMAP | `imap.js` | 4* | Email sync engine (see IMAP Worker section below) |
 | Webhooks | `webhooks.js` | 1* | Webhook delivery processor (see Webhooks section below) |
 | Submit | `submit.js` | 1* | Email delivery processor (see Submit Worker section below) |
@@ -111,7 +111,7 @@ EmailEngine uses Node.js Worker Threads for isolated execution. Workers talk to 
 | SMTP | `smtp.js` | 1 | Optional SMTP server (see SMTP Server section below) |
 | IMAP Proxy | `imap-proxy.js` | 1 | Optional IMAP proxy server (see IMAP Proxy section below) |
 
-*Configurable via env vars (`EENGINE_WORKERS`, `EENGINE_WORKERS_WEBHOOKS`, `EENGINE_WORKERS_SUBMIT`, `EENGINE_EXPORT_QC`)
+*Configurable via environment variables (`EENGINE_WORKERS`, `EENGINE_WORKERS_API`, `EENGINE_WORKERS_WEBHOOKS`, `EENGINE_WORKERS_SUBMIT`, `EENGINE_EXPORT_QC`). Multiple API workers (`EENGINE_WORKERS_API` > 1) require `SO_REUSEPORT` (Linux); on macOS/Windows/Node <23.1 it falls back to a single API worker.
 
 **Worker Lifecycle:**
 - Main thread spawns workers at startup. Monitors health via heartbeats (every 10s)
@@ -147,13 +147,14 @@ API worker (`workers/api.js`) runs Hapi.js HTTP server. Serves REST API (`/v1/*`
 **Configuration:**
 - `EENGINE_PORT` / `PORT` - Listen port (default: 3000)
 - `EENGINE_HOST` - Bind address (default: 127.0.0.1)
+- `EENGINE_WORKERS_API` - Number of API/HTTP workers (default: 1). Values >1 share the port via `SO_REUSEPORT` (Linux only); on macOS/Windows/Node <23.1 EmailEngine falls back to a single worker with a warning
 - `EENGINE_MAX_BODY_SIZE` - Max POST body (default: 25MB)
 - `EENGINE_TIMEOUT` - Request timeout (default: 10s). Override with `X-EE-Timeout` header
 - `EENGINE_API_PROXY` - Enable X-Forwarded-For parsing
 
 **Key files:**
-- `workers/api.js` - Hapi server setup + middleware
-- `lib/routes-ui.js` - Admin UI routes (88 routes)
+- `workers/api.js` - Hapi server setup and middleware
+- `lib/routes-ui.js` - Admin UI route orchestrator (wires the `lib/ui-routes/*` route modules)
 - `lib/api-routes/*.js` - REST API route modules
 - `lib/tokens.js` - Token validation + CRUD
 
@@ -298,9 +299,9 @@ Export worker (`workers/export.js`) processes bulk email export jobs via BullMQ.
 
 **Configuration:**
 - `EENGINE_EXPORT_QC` - Concurrency per worker (default: 1)
-- `EENGINE_EXPORT_TIMEOUT` - Operation timeout (default: 5 min)
-- `EENGINE_EXPORT_PATH` - Export file dir (default: OS temp dir)
-- `exportMaxAge` setting - Export file retention (default: 7 days)
+- `EENGINE_EXPORT_TIMEOUT` - Operation timeout (default: 5 minutes)
+- `EENGINE_EXPORT_PATH` - Export file directory (default: OS temp dir)
+- `EENGINE_EXPORT_MAX_AGE` / `exportMaxAge` setting - Export file retention in ms (default: 24 hours)
 - `exportMaxConcurrent` setting - Per-account concurrent limit (default: 3)
 - `exportMaxGlobalConcurrent` setting - Global concurrent limit (default: 10)
 - `exportMaxMessageSize` setting - Max attachment size (default: 25MB)
@@ -401,6 +402,7 @@ IMAP proxy (`lib/imapproxy/`) lets standard IMAP clients access EmailEngine-mana
 
 **Workers:**
 - `EENGINE_WORKERS` - IMAP worker count (default: 4)
+- `EENGINE_WORKERS_API` - API/HTTP worker count (default: 1; values >1 need `SO_REUSEPORT`/Linux, otherwise falls back to 1)
 - `EENGINE_WORKERS_WEBHOOKS` - Webhook worker count (default: 1)
 - `EENGINE_WORKERS_SUBMIT` - Submit worker count (default: 1)
 - `EENGINE_EXPORT_QC` - Export concurrency per worker (default: 1)
@@ -415,11 +417,12 @@ IMAP proxy (`lib/imapproxy/`) lets standard IMAP clients access EmailEngine-mana
 
 ## Code Style Rules
 
-- No emojis in code or docs. Printable ASCII only
-- Use single hyphen-minus (`-`) as dash in UI copy + user-facing strings. No double hyphens (`--`), em dashes, en dashes
-- Git commit messages: do not include Claude as co-contributor
-- After code changes:
-  1. Run `/simplify` to review changed code for reuse, quality, efficiency
+- Never use emojis in code or documentation, only printable ASCII characters
+- Use a single hyphen-minus (`-`) as a dash in UI copy and user-facing strings. Never use double hyphens (`--`), em dashes, or en dashes.
+- When composing git commit messages do not include Claude as co-contributor
+- For commits that do not change runtime behavior (docs, comments, CI/workflow tweaks, formatting), append `[skip ci]` to the commit message to avoid triggering the GitHub Actions workflows. Exception: do not add `[skip ci]` to commits using a `fix:` or `feat:` prefix - those must run so the release action is triggered.
+- After making code changes:
+  1. Run `/simplify` to review changed code for reuse, quality, and efficiency
   2. Run `npm run format` and `npm run lint`
   3. Run `/security-review` to check for security issues before commit
 - After pushing, check GitHub Actions runs for the push (e.g. `gh run list --branch <branch>`) + report status. If run fails for strange/unrelated reason (checkout "account suspended", HTTP 403, auth/infra errors unrelated to change), check https://www.githubstatus.com/ for active GitHub incident before assuming code caused it.

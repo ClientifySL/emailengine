@@ -7,7 +7,7 @@ const config = require('@zone-eu/wild-config');
 const logger = require('../lib/logger');
 
 const { REDIS_PREFIX } = require('../lib/consts');
-const { getDuration, readEnvValue, threadStats, reloadHttpProxyAgent } = require('../lib/tools');
+const { getDuration, readEnvValue, threadStats, maybeReloadHttpProxyAgent } = require('../lib/tools');
 const { webhooks: Webhooks } = require('../lib/webhooks');
 const settings = require('../lib/settings');
 
@@ -409,12 +409,24 @@ submitWorker.on('failed', async job => {
                 logger.error({ msg: 'Failed to remove queue entry', account: job.data.account, queueId: job.data.queueId, messageId: job.data.messageId, err });
             }
             // report as failed
-            await notify(job.data.account, EMAIL_FAILED_NOTIFY, {
-                messageId: job.data.messageId,
-                queueId: job.data.queueId,
-                error: job.stacktrace && job.stacktrace[0] && job.stacktrace[0].split('\n').shift(),
-                networkRouting: job.progress?.networkRouting
-            });
+            try {
+                await notify(job.data.account, EMAIL_FAILED_NOTIFY, {
+                    messageId: job.data.messageId,
+                    queueId: job.data.queueId,
+                    error: job.stacktrace && job.stacktrace[0] && job.stacktrace[0].split('\n').shift(),
+                    networkRouting: job.progress?.networkRouting
+                });
+            } catch (notifyErr) {
+                // A failed webhook notification must not bubble out of this BullMQ
+                // event listener as an unhandled rejection and take down the worker.
+                logger.error({
+                    msg: 'Failed to deliver submission failure notification',
+                    account: job.data.account,
+                    queueId: job.data.queueId,
+                    messageId: job.data.messageId,
+                    err: notifyErr
+                });
+            }
         }
     }
 
@@ -512,10 +524,7 @@ parentPort.on('message', message => {
     }
 
     if (message && message.cmd === 'settings') {
-        let d = message.data || {};
-        if ('httpProxyEnabled' in d || 'httpProxyUrl' in d) {
-            reloadHttpProxyAgent().catch(err => logger.error({ msg: 'Failed to reload HTTP proxy agent', err }));
-        }
+        maybeReloadHttpProxyAgent(message.data);
     }
 });
 
