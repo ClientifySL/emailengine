@@ -89,6 +89,75 @@
             });
         }
 
+        let externalAccountFileElm = document.getElementById('externalAccountFile');
+        if (externalAccountFileElm) {
+            externalAccountFileElm.addEventListener('click', e => {
+                e.preventDefault();
+                browseFileContents('text').then(jsonStr => {
+                    if (!jsonStr) {
+                        return;
+                    }
+
+                    let data;
+                    try {
+                        data = JSON.parse(jsonStr);
+                    } catch (err) {
+                        return showToast('Selected file is not JSON formatted', 'alert-triangle');
+                    }
+
+                    if (data.type !== 'external_account') {
+                        if (data.type === 'service_account') {
+                            return showToast('This is a service account key file, not a Workload Identity Federation config. Switch to the "Service account key" tab to load it.', 'alert-triangle');
+                        }
+                        return showToast(`Selected file is not an external_account credential config (type: ${data.type || 'missing'})`, 'alert-triangle');
+                    }
+
+                    let impersonationUrl = data.service_account_impersonation_url || '';
+                    let emailMatch = impersonationUrl.match(/\/serviceAccounts\/([^/]+):generateAccessToken$/);
+                    if (emailMatch) {
+                        let derivedEmail = decodeURIComponent(emailMatch[1]);
+                        let emailField = document.getElementById('serviceClientEmail');
+                        if (emailField && !emailField.value) {
+                            emailField.value = derivedEmail;
+                        }
+                    }
+
+                    document.getElementById('externalAccount').value = JSON.stringify(data, null, 2);
+                    return showToast('Loaded external account configuration from file', 'check-circle');
+                }).catch(err => {
+                    console.error(err);
+                    return showToast('Failed to load external account file', 'alert-triangle');
+                });
+            });
+        }
+
+        let authMethodTabs = document.querySelectorAll('.auth-method-tab');
+        let authMethodInput = document.getElementById('authMethod');
+        if (authMethodTabs.length && authMethodInput) {
+            let updateSections = selected => {
+                document.querySelectorAll('.auth-method-section').forEach(section => {
+                    let active = section.classList.contains('auth-method-section-' + selected);
+                    section.classList.toggle('d-none', !active);
+                });
+            };
+            authMethodTabs.forEach(tab => {
+                tab.addEventListener('click', e => {
+                    e.preventDefault();
+                    if (tab.classList.contains('disabled') || tab.classList.contains('active')) {
+                        return;
+                    }
+                    let selected = tab.getAttribute('data-auth-method');
+                    authMethodTabs.forEach(other => {
+                        let isActive = other === tab;
+                        other.classList.toggle('active', isActive);
+                        other.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                    });
+                    authMethodInput.value = selected;
+                    updateSections(selected);
+                });
+            });
+        }
+
     });
 
 </script>
